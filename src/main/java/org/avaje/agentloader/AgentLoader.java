@@ -4,8 +4,6 @@ import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import sun.tools.attach.BsdVirtualMachine;
 import sun.tools.attach.LinuxVirtualMachine;
 import sun.tools.attach.SolarisVirtualMachine;
@@ -19,18 +17,22 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
+ * Provides the ability to load an agent on a running process.
+ * 
  * author: Richard Vowles - http://gplus.to/RichardVowles
  */
 public class AgentLoader {
-  private static final Logger log = LoggerFactory.getLogger(AgentLoader.class);
+
+  private static final Logger log = Logger.getLogger(AgentLoader.class.getName());
+
   private static final List<String> loaded = new ArrayList<String>();
 
   private static final String discoverPid() {
     String nameOfRunningVM = ManagementFactory.getRuntimeMXBean().getName();
     int p = nameOfRunningVM.indexOf('@');
-
     return nameOfRunningVM.substring(0, p);
   }
 
@@ -56,46 +58,61 @@ public class AgentLoader {
     }
   };
 
+  /**
+   * Load an agent providing the full file path.
+   */
   public static void loadAgent(String jarFilePath) {
     loadAgent(jarFilePath, "");
   }
 
+  /**
+   * Load an agent providing the full file path with parameters.
+   */
   public static void loadAgent(String jarFilePath, String params) {
-    log.info("dynamically loading javaagent for {}", jarFilePath);
 
+    log.info("dynamically loading javaagent for " + jarFilePath);
     try {
-      VirtualMachine vm;
-
+      
       String pid = discoverPid();
 
+      VirtualMachine vm;
       if (AttachProvider.providers().isEmpty()) {
         vm = getVirtualMachineImplementationFromEmbeddedOnes(pid);
-      }
-      else {
+      } else {
         vm = VirtualMachine.attach(pid);
       }
 
       vm.loadAgent(jarFilePath, params);
       vm.detach();
+      
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
-  public static void loadAgentFromClasspath(String partial) {
-    loadAgentFromClasspath(partial, "");
+  /**
+   * Load the agent from the classpath using its name.
+   */
+  public static void loadAgentFromClasspath(String agentName) {
+    loadAgentFromClasspath(agentName, "");
   }
 
-  public synchronized static boolean loadAgentFromClasspath(String partial, String params) {
-    if (loaded.contains(partial)) {
+  /**
+   * Load the agent from the classpath using its name and passing params.
+   */
+  public synchronized static boolean loadAgentFromClasspath(String agentName, String params) {
+    
+    if (loaded.contains(agentName)) {
       // the agent is already loaded
       return true;
     }
     try {
+      // Search for the agent jar in the classpath
       if (AgentLoader.class.getClassLoader() instanceof URLClassLoader) {
         URLClassLoader cl = (URLClassLoader) (AgentLoader.class.getClassLoader());
         for (URL url : cl.getURLs()) {
-          if (isMatch(url, partial)) {
+          if (isMatch(url, agentName)) {
+            // We have found the agent jar in the classpath
             String fullName = url.toURI().getPath();
             if (fullName.startsWith("/") && isWindows()) {
               fullName = fullName.substring(1);
@@ -106,15 +123,18 @@ public class AgentLoader {
           }
         }
       }
-      
+
       // Agent not found and not loaded
       return false;
-      
+
     } catch (URISyntaxException use) {
       throw new RuntimeException(use);
     }
   }
 
+  /**
+   * Check to see if this url/jar matches our agent name.
+   */
   private static boolean isMatch(URL url, String partial) {
     String fullPath = url.getFile();
     int lastSlash = fullPath.lastIndexOf('/');
@@ -122,6 +142,7 @@ public class AgentLoader {
       return false;
     }
     String jarName = fullPath.substring(lastSlash + 1);
+    // Use startsWith so ignoring the version of the agent
     return jarName.startsWith(partial);
   }
 
@@ -129,7 +150,6 @@ public class AgentLoader {
     return File.separatorChar == '\\';
   }
 
-  //@SuppressWarnings("UseOfSunClasses")
   private static VirtualMachine getVirtualMachineImplementationFromEmbeddedOnes(String pid) {
     try {
       if (isWindows()) {
@@ -140,13 +160,17 @@ public class AgentLoader {
 
       if (osName.startsWith("Linux") || osName.startsWith("LINUX")) {
         return new LinuxVirtualMachine(ATTACH_PROVIDER, pid);
+
       } else if (osName.startsWith("Mac OS X")) {
         return new BsdVirtualMachine(ATTACH_PROVIDER, pid);
+      
       } else if (osName.startsWith("Solaris")) {
         return new SolarisVirtualMachine(ATTACH_PROVIDER, pid);
       }
+      
     } catch (AttachNotSupportedException | IOException e) {
       throw new RuntimeException(e);
+      
     } catch (UnsatisfiedLinkError e) {
       throw new IllegalStateException("Native library for Attach API not available in this JRE", e);
     }
