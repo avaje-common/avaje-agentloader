@@ -40,9 +40,9 @@
   </developers>
 
   <scm>
-    <connection>scm:git:https://github.com/ebean-orm/avaje-ebeanorm.git</connection>
-    <developerConnection>scm:git:https://github.com/ebean-orm/avaje-ebeanorm.git</developerConnection>
-    <url>https://github.com/ebean-orm/avaje-ebeanorm.git</url>
+    <connection>scm:git:https://github.com/avaje-common/avaje-agentloader.git</connection>
+    <developerConnection>scm:git:https://github.com/avaje-common/avaje-agentloader.git</developerConnection>
+    <url>https://github.com/avaje-common/avaje-agentloader.git</url>
   </scm>
   
   <dependencies>
