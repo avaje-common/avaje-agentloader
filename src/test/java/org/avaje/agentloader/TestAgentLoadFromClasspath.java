@@ -9,11 +9,7 @@ import org.avaje.agentloader.AgentLoader;
 import com.avaje.ebean.BeanState;
 import com.avaje.ebean.Ebean;
 
-/**
- * Hello world!
- * 
- */
-public class App extends TestCase {
+public class TestAgentLoadFromClasspath extends TestCase {
   
   public void testWithEbeanAgent() {
     
