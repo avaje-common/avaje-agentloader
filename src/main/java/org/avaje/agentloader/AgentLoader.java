@@ -168,9 +168,11 @@ public class AgentLoader {
         return new SolarisVirtualMachine(ATTACH_PROVIDER, pid);
       }
       
-    } catch (AttachNotSupportedException | IOException e) {
+    } catch (AttachNotSupportedException e) {
       throw new RuntimeException(e);
-      
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+
     } catch (UnsatisfiedLinkError e) {
       throw new IllegalStateException("Native library for Attach API not available in this JRE", e);
     }
