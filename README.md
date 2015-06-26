@@ -1,14 +1,16 @@
 avaje-agentloader
 =================
+[![Maven Central : avaje-agentloader](https://maven-badges.herokuapp.com/maven-central/org.avaje/avaje-agentloader/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.avaje/avaje-agentloader)
 
 Provides the ability to load java agents to a running java process
+
 
 Maven Dependency
 ================
     <dependency>
       <groupId>org.avaje</groupId>
       <artifactId>avaje-agentloader</artifactId>
-      <version>[1.1.1]</version>
+      <version>1.1.2</version>
     </dependency>
     
 Example Usage
