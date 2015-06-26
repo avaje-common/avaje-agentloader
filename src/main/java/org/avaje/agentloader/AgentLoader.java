@@ -141,9 +141,10 @@ public class AgentLoader {
     if (lastSlash < 0) {
       return false;
     }
-    String jarName = fullPath.substring(lastSlash + 1);
-    // Use startsWith so ignoring the version of the agent
-    return jarName.startsWith(partial);
+    /**
+     * Use 'contains' so ignoring the version of the agent and offset of inner jar
+     */
+    return fullPath.contains(partial);
   }
 
   private static final boolean isWindows() {
