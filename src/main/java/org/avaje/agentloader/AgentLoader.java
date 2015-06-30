@@ -4,24 +4,31 @@ import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
+import org.apache.commons.io.IOUtils;
 import sun.tools.attach.BsdVirtualMachine;
 import sun.tools.attach.LinuxVirtualMachine;
 import sun.tools.attach.SolarisVirtualMachine;
 import sun.tools.attach.WindowsVirtualMachine;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
 import java.util.logging.Logger;
 
 /**
  * Provides the ability to load an agent on a running process.
- * 
+ * <p/>
  * author: Richard Vowles - http://gplus.to/RichardVowles
  */
 public class AgentLoader {
@@ -72,7 +79,7 @@ public class AgentLoader {
 
     log.info("dynamically loading javaagent for " + jarFilePath);
     try {
-      
+
       String pid = discoverPid();
 
       VirtualMachine vm;
@@ -84,7 +91,7 @@ public class AgentLoader {
 
       vm.loadAgent(jarFilePath, params);
       vm.detach();
-      
+
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -101,7 +108,7 @@ public class AgentLoader {
    * Load the agent from the classpath using its name and passing params.
    */
   public synchronized static boolean loadAgentFromClasspath(String agentName, String params) {
-    
+
     if (loaded.contains(agentName)) {
       // the agent is already loaded
       return true;
@@ -114,12 +121,29 @@ public class AgentLoader {
           if (isMatch(url, agentName)) {
             // We have found the agent jar in the classpath
             String fullName = url.toURI().getPath();
-            if (fullName.startsWith("/") && isWindows()) {
-              fullName = fullName.substring(1);
+
+            boolean isEmbedded = false;
+            if (fullName == null && url.getProtocol().equals("jar") && url.getPath().contains("!/")) {
+              fullName = extractJar(url, agentName);
+              isEmbedded = true;
             }
-            loadAgent(fullName, params);
-            loaded.add(fullName);
-            return true;
+
+            if (fullName != null && !loaded.contains(fullName)) {
+              if (fullName.startsWith("/") && isWindows()) {
+                fullName = fullName.substring(1);
+              }
+
+              try {
+                loadAgent(fullName, params);
+                loaded.add(fullName);
+                return true;
+              } finally {
+                if (isEmbedded) {
+                  new File(fullName).delete();
+                }
+              }
+            }
+
           }
         }
       }
@@ -151,6 +175,82 @@ public class AgentLoader {
     return File.separatorChar == '\\';
   }
 
+  /**
+   * This method takes the jar:file:path-to-filename.war!/WEB-INF/jar/jar-file/ offset that is included in the
+   * url classpath and extracts out a single jar containing the files in that match that url.
+   *
+   * @param path    - full url entry in the classpath
+   * @param partial - the name of the partial we are trying to match
+   * @return null if it fails or a full path to the jar file if it succeeds
+   */
+  public static String extractJar(URL path, String partial) {
+    String fullPath = null;
+
+    String[] jarNames = path.getPath().split(":");
+
+    if (jarNames.length >= 2) {
+      String fileAndOffset = jarNames[1];
+      int pos = fileAndOffset.indexOf('!');
+      if (pos >= 0) {
+        String file = fileAndOffset.substring(0, pos);
+        String offset = fileAndOffset.substring(pos + 2);
+        int offsetLength = offset.length();
+
+        fullPath = System.getProperty("java.io.tmpdir") + "/" + partial + ".jar";
+        JarOutputStream outputJar = null;
+        JarFile inputZip = null;
+        try {
+          outputJar = new JarOutputStream(new FileOutputStream(fullPath));
+          inputZip = new JarFile(file);
+
+          Enumeration<JarEntry> entries = inputZip.entries();
+          while (entries.hasMoreElements()) {
+            JarEntry entry = entries.nextElement();
+
+            if (entry.getName().startsWith(offset)) {
+              try {
+                String internalName = entry.getName().substring(offsetLength);
+                JarEntry jarEntry = new JarEntry(entry);
+                Field f = jarEntry.getClass().getSuperclass().getDeclaredField("name");
+                f.setAccessible(true);
+                f.set(jarEntry, internalName);
+                jarEntry.setCompressedSize(0);
+
+                outputJar.putNextEntry(jarEntry);
+                IOUtils.copy(inputZip.getInputStream(entry), outputJar);
+                outputJar.closeEntry();
+
+              } catch (Exception ex) {
+                log.warning("Cannot copy single JarEntry '" + entry.getName() + "'");
+                ex.printStackTrace();
+              }
+            }
+          }
+
+        } catch (Exception ex) {
+          log.warning("Failed to copy partial " + partial);
+          ex.printStackTrace();
+        } finally {
+          if (outputJar != null) {
+            try {
+              outputJar.close();
+            } catch (IOException ioEx) {
+            }
+          }
+          if (inputZip != null) {
+            try {
+              inputZip.close();
+            } catch (IOException ioEx) {
+            }
+          }
+          fullPath = null;
+        }
+      }
+    }
+
+    return fullPath;
+  }
+
   private static VirtualMachine getVirtualMachineImplementationFromEmbeddedOnes(String pid) {
     try {
       if (isWindows()) {
@@ -164,11 +264,11 @@ public class AgentLoader {
 
       } else if (osName.startsWith("Mac OS X")) {
         return new BsdVirtualMachine(ATTACH_PROVIDER, pid);
-      
+
       } else if (osName.startsWith("Solaris")) {
         return new SolarisVirtualMachine(ATTACH_PROVIDER, pid);
       }
-      
+
     } catch (AttachNotSupportedException e) {
       throw new RuntimeException(e);
     } catch (IOException e) {
