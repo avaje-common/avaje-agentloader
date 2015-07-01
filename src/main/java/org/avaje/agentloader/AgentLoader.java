@@ -4,7 +4,6 @@ import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import sun.tools.attach.BsdVirtualMachine;
 import sun.tools.attach.LinuxVirtualMachine;
