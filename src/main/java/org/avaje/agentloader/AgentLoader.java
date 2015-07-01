@@ -4,6 +4,7 @@ import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import sun.tools.attach.BsdVirtualMachine;
 import sun.tools.attach.LinuxVirtualMachine;
@@ -180,46 +181,33 @@ public class AgentLoader {
    * url classpath and extracts out a single jar containing the files in that match that url.
    *
    * @param path    - full url entry in the classpath
-   * @param partial - the name of the partial we are trying to match
+   * @param agentName - the agent name that we are trying to match
    * @return null if it fails or a full path to the jar file if it succeeds
    */
-  public static String extractJar(URL path, String partial) {
+  public static String extractJar(URL path, String agentName) {
     String fullPath = null;
 
     String[] jarNames = path.getPath().split(":");
 
     if (jarNames.length >= 2) {
-      String fileAndOffset = jarNames[1];
-      int pos = fileAndOffset.indexOf('!');
-      if (pos >= 0) {
-        String file = fileAndOffset.substring(0, pos);
-        String offset = fileAndOffset.substring(pos + 2);
-        int offsetLength = offset.length();
-
-        fullPath = System.getProperty("java.io.tmpdir") + "/" + partial + ".jar";
-        JarOutputStream outputJar = null;
+      String[] fileAndOffset = jarNames[1].split("!/");
+      if (fileAndOffset.length >= 2) {
+        fullPath = System.getProperty("java.io.tmpdir") + "/" + agentName + ".jar";
+        String packageName = fileAndOffset[0];
+        String fileName = fileAndOffset[1];
+        FileOutputStream outputJar = null;
         JarFile inputZip = null;
         try {
-          outputJar = new JarOutputStream(new FileOutputStream(fullPath));
-          inputZip = new JarFile(file);
+          outputJar = new FileOutputStream(fullPath);
+          inputZip = new JarFile(packageName);
 
           Enumeration<JarEntry> entries = inputZip.entries();
           while (entries.hasMoreElements()) {
             JarEntry entry = entries.nextElement();
 
-            if (entry.getName().startsWith(offset)) {
+            if (!entry.isDirectory() && entry.getName().startsWith(fileName)) {
               try {
-                String internalName = entry.getName().substring(offsetLength);
-                JarEntry jarEntry = new JarEntry(entry);
-                Field f = jarEntry.getClass().getSuperclass().getDeclaredField("name");
-                f.setAccessible(true);
-                f.set(jarEntry, internalName);
-                jarEntry.setCompressedSize(0);
-
-                outputJar.putNextEntry(jarEntry);
                 IOUtils.copy(inputZip.getInputStream(entry), outputJar);
-                outputJar.closeEntry();
-
               } catch (Exception ex) {
                 log.warning("Cannot copy single JarEntry '" + entry.getName() + "'");
                 ex.printStackTrace();
@@ -228,7 +216,7 @@ public class AgentLoader {
           }
 
         } catch (Exception ex) {
-          log.warning("Failed to copy partial " + partial);
+          log.warning("Failed to copy agent " + agentName);
           ex.printStackTrace();
         } finally {
           if (outputJar != null) {
@@ -243,7 +231,6 @@ public class AgentLoader {
             } catch (IOException ioEx) {
             }
           }
-          fullPath = null;
         }
       }
     }
