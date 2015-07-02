@@ -1,5 +1,7 @@
 *.autofetch
 *.sql
+*.iml
+.idea/
 .classpath
 .project
 .settings/
