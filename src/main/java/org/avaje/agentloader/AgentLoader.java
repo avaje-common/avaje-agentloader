@@ -4,7 +4,6 @@ import com.sun.tools.attach.AttachNotSupportedException;
 import com.sun.tools.attach.VirtualMachine;
 import com.sun.tools.attach.VirtualMachineDescriptor;
 import com.sun.tools.attach.spi.AttachProvider;
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.tools.attach.BsdVirtualMachine;
@@ -12,10 +11,7 @@ import sun.tools.attach.LinuxVirtualMachine;
 import sun.tools.attach.SolarisVirtualMachine;
 import sun.tools.attach.WindowsVirtualMachine;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -37,6 +33,11 @@ public class AgentLoader {
   private static final Logger log = LoggerFactory.getLogger(AgentLoader.class);
 
   private static final List<String> loaded = new ArrayList<String>();
+
+  /**
+   * Buffer size used when extracting the agent (when it is embedded).
+   */
+  private static final int IO_BUFFER_SIZE = 1024 * 4;
 
   private static final String discoverPid() {
     String nameOfRunningVM = ManagementFactory.getRuntimeMXBean().getName();
@@ -124,7 +125,8 @@ public class AgentLoader {
             String fullName = url.toURI().getPath();
 
             boolean isEmbedded = false;
-            if (fullName == null && url.getProtocol().equals("jar") && url.getPath().contains("!/")) {
+            if (isAgentEmbeddedInJar(url, fullName)) {
+              // extract the agent jar into a tmp directory for use
               fullName = extractJar(url, agentName);
               isEmbedded = true;
             }
@@ -159,6 +161,13 @@ public class AgentLoader {
     } catch (URISyntaxException use) {
       throw new RuntimeException(use);
     }
+  }
+
+  /**
+   * Return true if the agent jar is embedded. In this case we extract it out into a tmp directory.
+   */
+  private static boolean isAgentEmbeddedInJar(URL url, String fullName) {
+    return fullName == null && url.getProtocol().equals("jar") && url.getPath().contains("!/");
   }
 
   /**
@@ -210,7 +219,7 @@ public class AgentLoader {
         JarEntry entry = entries.nextElement();
         if (!entry.isDirectory() && entry.getName().startsWith(fileName)) {
           try {
-            IOUtils.copy(inputZip.getInputStream(entry), outputJar);
+            copyBytes(inputZip.getInputStream(entry), outputJar);
           } catch (IOException ex) {
             log.warn("Cannot export single JarEntry '" + entry.getName() + "'", ex);
           }
@@ -223,19 +232,35 @@ public class AgentLoader {
         try {
           outputJar.close();
         } catch (IOException ioEx) {
-          log.error("Cannot close Agent JarFile", ioEx);
+          log.error("Error closing Agent JarFile", ioEx);
         }
       }
       if (inputZip != null) {
         try {
           inputZip.close();
         } catch (IOException ioEx) {
-          log.error("Cannot close source ZIP file", ioEx);
+          log.error("Error closing input JarFile", ioEx);
         }
       }
     }
 
     return fullPath;
+  }
+
+  /**
+   * Copy the bytes from input to output streams (using a 4K buffer).
+   */
+  protected static long copyBytes(InputStream input, OutputStream output) throws IOException {
+
+    byte[] buffer = new byte[IO_BUFFER_SIZE];
+
+    long count = 0;
+    int n;
+    while (-1 != (n = input.read(buffer))) {
+      output.write(buffer, 0, n);
+      count += n;
+    }
+    return count;
   }
 
   private static VirtualMachine getVirtualMachineImplementationFromEmbeddedOnes(String pid) {
