@@ -13,6 +13,7 @@ import sun.tools.attach.WindowsVirtualMachine;
 
 import java.io.*;
 import java.lang.management.ManagementFactory;
+import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -21,6 +22,7 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
 
 
 /**
@@ -190,8 +192,20 @@ public class AgentLoader {
   }
 
   /**
-   * This method takes the jar:file:path-to-filename.war!/WEB-INF/jar/jar-file/ offset that is included in the
-   * url classpath and extracts out a single jar containing the files in that match that url.
+   * @return true if the path is an embedded JAR file.
+   *
+   * If it is an embedded JAR file, we only need to export it.
+   * Otherwise, we have to extract all class files, and package them into a JAR file.
+   */
+  private static boolean isEmbededJar(String path) {
+    return path.endsWith(".jar!/");
+  }
+
+  /**
+   * This method will extract agent JAR file from URL path.
+   * Due to the package implementation, this method will cover two cases as below:
+   * Embedded Class Files: jar:file:path-to-filename.war!/WEB-INF/jar/jar-file/
+   * Embedded Jar Files: jar:file:path-to-filename.war!/WEB-INF/jar/jar-file!/
    *
    * @param path is full url entry in the classpath
    * @param agentName is the agent name that we are trying to match
@@ -199,32 +213,30 @@ public class AgentLoader {
    */
   public static String extractJar(URL path, String agentName) {
     String fullPath = null;
-
-    FileOutputStream outputJar = null;
+    OutputStream outputJar = null;
     JarFile inputZip = null;
+
+    log.debug("Extracting agent {} from source {}", agentName, path.getPath());
 
     try {
       String[] jarNames = path.getPath().split(":");
-      String[] fileAndOffset = jarNames[1].split("!/");
+      String[] packageFileAndFileOffset = jarNames[1].split("!/");
 
+      // the full path of Final Agent Jar File
       fullPath = System.getProperty("java.io.tmpdir") + "/" + agentName + ".jar";
-      String packageName = fileAndOffset[0];
-      String fileName = fileAndOffset[1];
 
-      outputJar = new FileOutputStream(fullPath);
-      inputZip = new JarFile(packageName);
+      String packageFile = packageFileAndFileOffset[0];
+      String fileOffset = packageFileAndFileOffset[1];
+      inputZip = new JarFile(packageFile);
 
-      Enumeration<JarEntry> entries = inputZip.entries();
-      while (entries.hasMoreElements()) {
-        JarEntry entry = entries.nextElement();
-        if (!entry.isDirectory() && entry.getName().startsWith(fileName)) {
-          try {
-            copyBytes(inputZip.getInputStream(entry), outputJar);
-          } catch (IOException ex) {
-            log.warn("Cannot export single JarEntry '" + entry.getName() + "'", ex);
-          }
-        }
-      }
+      boolean isJarFile = isEmbededJar(jarNames[1]);
+      outputJar = isJarFile ?
+              new FileOutputStream(fullPath) :
+              new JarOutputStream(new FileOutputStream(fullPath));
+
+      exportFile(inputZip, outputJar, fileOffset, isJarFile);
+      log.debug("Extracted agent to {}", fullPath);
+
     } catch (Exception ex) {
       log.error("Failed to export agent " + agentName, ex);
     } finally {
@@ -245,6 +257,46 @@ public class AgentLoader {
     }
 
     return fullPath;
+  }
+
+  /**
+   * Export the file from source JarFile to target file
+   *
+   * @param source is the source Jar file
+   * @param target is the target file (either JarFile, or File)
+   * @param partial if offset of expected file in the source Jar file
+   * @param isJar is flag of expected file type
+   *
+   */
+  protected static void exportFile(JarFile source, OutputStream target, String partial, boolean isJar) throws NoSuchFieldException, IllegalAccessException, IOException {
+    Enumeration<JarEntry> entries = source.entries();
+    while (entries.hasMoreElements()) {
+      JarEntry entry = entries.nextElement();
+
+      if (entry.getName().startsWith(partial)) {
+        log.debug("copying {} to output", entry.getName());
+        if (isJar) {
+          // Only need to export a single JAR file
+          copyBytes(source.getInputStream(entry), target);
+          break;
+        } else {
+          // Need to extract all class files and put into a new JarFile
+          String internalName = entry.getName().substring(partial.length());
+          JarEntry ze = new JarEntry(entry);
+          Field f = ze.getClass().getSuperclass().getDeclaredField("name");
+          f.setAccessible(true);
+          f.set(ze, internalName);
+
+          try {
+            ((JarOutputStream) target).putNextEntry(ze);
+            copyBytes(source.getInputStream(entry), target);
+          } finally {
+            ((JarOutputStream) target).closeEntry();
+          }
+        }
+      }
+    }
+
   }
 
   /**
