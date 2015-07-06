@@ -10,7 +10,7 @@ Maven Dependency
     <dependency>
       <groupId>org.avaje</groupId>
       <artifactId>avaje-agentloader</artifactId>
-      <version>2.1.1</version>
+      <version>2.1.2</version>
     </dependency>
     
 Example Usage
