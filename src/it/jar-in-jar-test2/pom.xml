@@ -16,38 +16,34 @@
       <classifier>tests</classifier>
     </dependency>
   </dependencies>
-  <artifactId>avaje-agentloader-jar-in-jar-test</artifactId>
+  <artifactId>avaje-agentloader-jar-in-jar-test2</artifactId>
   <build>
     <plugins>
       <plugin>
-        <!-- 
-          use the spring boot plugin to build two "uber" jars.
-          The jars have all their dependencies packed in the BOOT-INF/lib
-          folder. So the size of the jar is ~ 5MB.
-        -->
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-        <version>2.1.2.RELEASE</version>
+        <groupId>com.jolira</groupId>
+        <artifactId>onejar-maven-plugin</artifactId>
+        <version>1.4.4</version>
         <executions>
+          <!-- same jar-in-jar-test. But with a different plugin -->
           <execution>
             <id>jar-by-prefix</id>
             <goals>
-              <goal>repackage</goal>
+              <goal>one-jar</goal>
             </goals>
             <configuration>
               <mainClass>org.avaje.agentloader.test.ItJarInJarByPrefix</mainClass>
-              <classifier>prefix</classifier>
+              <filename>${project.build.finalName}-prefix.jar</filename>
             </configuration>
           </execution>
           <!-- build a second jar, but with a different launcher class -->
           <execution>
             <id>jar-by-classname</id>
             <goals>
-              <goal>repackage</goal>
+              <goal>one-jar</goal>
             </goals>
             <configuration>
               <mainClass>org.avaje.agentloader.test.ItJarInJarByClassName</mainClass>
-              <classifier>classname</classifier>
+              <filename>${project.build.finalName}-classname.jar</filename>
             </configuration>
           </execution>
         </executions>
