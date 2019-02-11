@@ -1,0 +1,42 @@
+<settings>
+  <profiles>
+    <profile>
+      <id>it-repo</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+    <!--   <properties>
+        This property allows the ITs to access the real local repository instead of the isolated one
+        <invoker.repo.local>@localRepository@</invoker.repo.local>
+        Property used in verification of settings-inherit IT
+        <it.settings-inherit>exists</it.settings-inherit>
+        Property used in verification of settings-merge IT
+        <it.settings-merge.1>exists</it.settings-merge.1>
+      </properties> -->
+      <repositories>
+        <repository>
+          <id>local.central</id>
+          <url>@localRepositoryUrl@</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+        </repository>
+      </repositories>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>local.central</id>
+          <url>@localRepositoryUrl@</url>
+          <releases>
+            <enabled>true</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+        </pluginRepository>
+      </pluginRepositories>
+    </profile>
+  </profiles>
+</settings>

@@ -1,0 +1,57 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.avaje</groupId>
+    <artifactId>avaje-agentloader-integration</artifactId>
+    <version>@project.version@</version>
+    <relativePath>../integration.xml</relativePath>
+  </parent>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.avaje</groupId>
+      <artifactId>avaje-agentloader</artifactId>
+      <version>@project.version@</version>
+      <classifier>tests</classifier>
+    </dependency>
+  </dependencies>
+  <artifactId>avaje-agentloader-jar-in-jar-test</artifactId>
+  <build>
+    <plugins>
+      <plugin>
+        <!-- 
+          use the spring boot plugin to build two "uber" jars.
+          The jars have all their dependencies packed in the BOOT-INF/lib
+          folder. So the size of the jar is ~ 5MB.
+        -->
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>2.1.2.RELEASE</version>
+        <executions>
+          <execution>
+            <id>jar-by-prefix</id>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+            <configuration>
+              <mainClass>org.avaje.agentloader.test.ItJarInJarByPrefix</mainClass>
+              <classifier>prefix</classifier>
+            </configuration>
+          </execution>
+          <!-- build a second jar, but with a different launcher class -->
+          <execution>
+            <id>jar-by-classname</id>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+            <configuration>
+              <mainClass>org.avaje.agentloader.test.ItJarInJarByClassName</mainClass>
+              <classifier>classname</classifier>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
