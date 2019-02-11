@@ -10,7 +10,7 @@ Maven Dependency
     <dependency>
       <groupId>org.avaje</groupId>
       <artifactId>avaje-agentloader</artifactId>
-      <version>2.1.2</version>
+      <version>3.0.1</version>
     </dependency>
     
 Example Usage
@@ -19,7 +19,12 @@ Example Usage
     public void someApplicationBootupMethod() {
     
       // Load the agent into the running JVM process
-      AgentLoader.loadAgentFromClasspath("avaje-ebeanorm-agent","debug=1");
+      
+      // preferred method:
+      AgentLoader.loadAgentByMainClass("io.ebean.enhance.Transformer", "debug=1");
+      
+      // No longer recommended (does not work reliable on jar-in-jar)
+      AgentLoader.loadAgentFromClasspath("ebean-agent","debug=1");
       
     }
 </pre>
