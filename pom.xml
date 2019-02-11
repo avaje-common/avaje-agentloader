@@ -9,7 +9,7 @@
 
   <groupId>org.avaje</groupId>
   <artifactId>avaje-agentloader</artifactId>
-  <version>3.0.0-SNAPSHOT</version>
+  <version>3.0.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>avaje-agentloader</name>
