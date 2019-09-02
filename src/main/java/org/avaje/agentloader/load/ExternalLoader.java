@@ -27,16 +27,6 @@ public class ExternalLoader implements Loader {
    */
   private static final Logger log = LoggerFactory.getLogger(AgentLoader.class);
 
-  /**
-   * Quotes a value if it contains a white space.
-   *
-   * @param value The value to quote.
-   * @return The value being quoted if necessary.
-   */
-  private static String quote(String value) {
-    return value.contains(" ") ? '"' + value + '"' : value;
-  }
-
   public static final boolean isWindows() {
     return File.separatorChar == '\\';
   }
@@ -84,10 +74,10 @@ public class ExternalLoader implements Loader {
         cmd.append("java");
       }
 
-      ProcessBuilder procBuilder = new ProcessBuilder(quote(cmd.toString()), // path/to/java
-          "-cp", quote(classPath.getAbsolutePath()), // -cp <this-jar>
+      ProcessBuilder procBuilder = new ProcessBuilder(cmd.toString(), // path/to/java
+          "-cp", classPath.getAbsolutePath(), // -cp <this-jar>
           DirectLoader.class.getName(), // <class-with-main>
-          quote(jarFilePath), quote(pid), quote(params)); // >params for main>
+          jarFilePath, pid, params); // >params for main>
 
       procBuilder.redirectErrorStream(true);
 
