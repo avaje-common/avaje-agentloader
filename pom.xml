@@ -9,7 +9,7 @@
 
   <groupId>org.avaje</groupId>
   <artifactId>avaje-agentloader</artifactId>
-  <version>4.2</version>
+  <version>4.3-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <name>avaje-agentloader</name>
@@ -45,7 +45,7 @@
 
   <scm>
     <developerConnection>scm:git:git@github.com:avaje-common/avaje-agentloader.git</developerConnection>
-    <tag>avaje-agentloader-4.2</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <dependencies>
