@@ -44,10 +44,6 @@ public class AgentLoader {
       log.trace("using direct-attach for java {} < 9", version);
       return true;
 
-    } else if (Boolean.getBoolean(JDK_ALLOW_SELF_ATTACH)) {
-      log.trace("using direct-attach, because {} is set", JDK_ALLOW_SELF_ATTACH);
-      return true;
-
     } else {
       log.trace("using external-attach for java {}", version);
       return false;
